@@ -128,3 +128,42 @@ def construct_prompt(question, contexts: list[Chunk]):
     print(prompt)
     
     return prompt
+
+
+def generate_rag_query(history, query):
+    """
+    根据历史对话和新查询生成适合RAG系统检索的查询文本
+    
+    参数:
+        history: 历史对话列表，格式为[{"role": "user/assistant", "content": "..."}]
+        query: 用户新提出的问题
+        
+    返回:
+        生成的检索查询文本
+    """
+    # 构建提示词模板
+    prompt_template = """请根据提供的历史对话记录和用户新提出的问题，生成一段适合用于检索系统的查询文本。
+生成的查询需要：
+1. 融合历史对话中的关键信息和新问题的核心内容
+2. 包含所有相关的实体、主题和问题焦点
+3. 采用简洁明了的自然语言表述，避免冗余
+4. 能够准确引导检索系统找到与整个对话上下文相关的信息
+
+历史对话：
+{history}
+
+用户新问题：{query}
+
+请基于以上信息，生成优化后的检索查询文本：
+"""
+    
+    # 格式化历史对话为字符串
+    history_str = ""
+    for msg in history:
+        role = "用户" if msg["role"] == "user" else "助手"
+        history_str += f"{role}：{msg['content']}\n"
+    
+    # 填充模板
+    prompt = prompt_template.format(history=history_str, query=query)
+    
+    return prompt

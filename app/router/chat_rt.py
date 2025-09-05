@@ -3,7 +3,7 @@ from ragflow_sdk import Chunk
 import time
 
 from schema.chat import SingleFileChatRequest, ChatRequest
-from service.llm import construct_prompt, query_vllm
+from service.llm import construct_prompt, query_vllm, generate_rag_query
 from service.ragflow import get_ragflow_client_and_dataset
 from service.sqlite import save_mapping, get_ragflow_id_by_client_id, get_other_by_ragflow_id
 
@@ -56,7 +56,10 @@ async def single_file_chat(request: SingleFileChatRequest):
 
     # 检索相关块
     ragflow_id = get_ragflow_id_by_client_id(request.file_id)
-    contexts = client.retrieve(question=request.query, dataset_ids=[dataset.id], document_ids=[ragflow_id])
+    new_query_prompt = generate_rag_query(request.history, request.query)
+    new_query = query_vllm(user_prompt=new_query_prompt)
+    print(f"new query:-------------------\n{new_query}")
+    contexts = client.retrieve(question=new_query, dataset_ids=[dataset.id], document_ids=[ragflow_id])
 
     # 没有解析完成
     if not contexts:
@@ -106,10 +109,10 @@ async def chat(request: ChatRequest):
 
     # 附带参考数据返回
     reference = []
-    print("---")
-    print( type(contexts) )
-    for i in contexts:
-        print(i)
+    # print("---")
+    # print( type(contexts) )
+    # for i in contexts:
+    #     print(i)
     if isinstance(contexts, list):
         for ctx in contexts:
             file_id, file_name = get_other_by_ragflow_id(ctx.document_id)
