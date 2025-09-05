@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from router import chat_rt
 from router import history_rt
+from service.sqlite import init_db
 
 app = FastAPI()
 
@@ -18,6 +20,7 @@ app.include_router(chat_rt.router)
 app.include_router(history_rt.router)
 
 if __name__=='__main__':
+    init_db()
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=10081)
     

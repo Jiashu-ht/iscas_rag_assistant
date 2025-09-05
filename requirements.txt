@@ -1,4 +1,6 @@
 ragflow_sdk
 fastapi
-sqlite3
+uvicorn
 pydantic
+dotenv
+python-multipart

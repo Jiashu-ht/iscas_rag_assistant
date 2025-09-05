@@ -1,2 +1,5 @@
+ragflow
 dataset/docs/*
 dataset/sqlite/*
+test_file.txt
+**/__pycache__/

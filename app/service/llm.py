@@ -1,5 +1,6 @@
 import json
 import requests
+from ragflow_sdk import Chunk
 
 from service.sqlite import get_other_by_ragflow_id
 
@@ -7,7 +8,7 @@ def query_vllm(system_prompt="", user_prompt="", history=None, model="Qwen2.5-7B
     headers = {
         "Content-Type": "application/json"
     }
-    url = "http://localhost:8002/v1/chat/completions"
+    url = "http://172.17.0.1:10000/v1/chat/completions"
     
     # 构造聊天历史
     messages = []
@@ -77,13 +78,20 @@ def query_vllm(system_prompt="", user_prompt="", history=None, model="Qwen2.5-7B
 # )
 # print(result)
 
-def construct_prompt(question, contexts):
+def construct_prompt(question, contexts: list[Chunk]):
     # 将检索到的上下文组合成字符串
     context_str = []
     for i, ctx in enumerate(contexts):
-        file_id, file_name = get_other_by_ragflow_id(ctx['document_id'])
-        context_str.append(f"[上下文片段 {i+1}]:\n{ctx['content']}\n来源: 文档编号-{file_id}, 文档名称-{file_name}")
+        # print(ctx)
+        print(ctx)
+
+        try:
+            file_id, file_name = get_other_by_ragflow_id(ctx.document_id)
+            context_str.append(f"[上下文片段 {i+1}]:\n{ctx.content}\n来源: 文档编号-{file_id}, 文档名称-{file_name}")
+        except Exception as e:
+            print(e)
     context_str = "\n\n".join(context_str)
+
     
     prompt = f"""
 # 角色与任务
@@ -100,7 +108,7 @@ def construct_prompt(question, contexts):
 1. 仅使用上述参考上下文中的信息来回答问题，不要依赖外部知识
 2. 如果参考上下文中的信息不足以回答这个问题，请明确说明"根据提供的信息，无法完全回答此问题"
 3. 确保回答准确、客观，避免主观臆断或猜测
-4. 保持回答简洁明了，但内容完整
+4. 保持回答详实，内容完整
 5. 如果参考上下文中有相互矛盾的信息，请指出这种矛盾，并尽可能提供最合理的解释
 6. 对于涉及数字、日期或具体事实的信息，请确保与参考上下文一致
 
@@ -117,5 +125,6 @@ def construct_prompt(question, contexts):
 
 请根据以上要求生成回答。
 """
+    print(prompt)
     
     return prompt

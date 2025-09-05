@@ -1,0 +1,23 @@
+conda create -n assistant python=3.10 -y
+conda activate assistant
+pip install -r requirements.txt
+
+docker compose -f docker-compose-gpu.yml up -d
+# 查看镜像
+docker compose images
+# 删除所有镜像
+docker compose down --rmi all -v
+
+# 通过镜像ID删除
+docker rmi 镜像ID
+
+docker ps
+# 进入docker内部
+docker exec -it ragflow-server bash
+nvidia-smi
+pip install nvitop
+nvitop
+exit
+
+ragflow/docker/docker-compose-gpu.yml
+修改 count 从 all 改为 1

@@ -23,12 +23,17 @@
 
 修改项目根目录下的 `/.env` 文件，把 `RAGFLOW`开头的变量修改成刚刚获取的。账户邮箱密码可以不填，其余必填。
 
-## 3. 运行
+## 3. 运行后端
 
-根据`requirements.txt`下载相关库
+
+创建虚拟环境assistant, 根据`requirements.txt`下载相关库
 
 ```shell
-python .\app\app_main.py
+conda create -n assistant python=3.10 -y
+conda activate assistant
+pip install -r requirements.txt
+
+python app/app_main.py
 ```
 
 记住项目运行服务器ip

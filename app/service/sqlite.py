@@ -8,7 +8,7 @@ DATA_DIR = Path("dataset/sqlite")
 DATA_DIR.mkdir(exist_ok=True)
 
 # 数据库文件路径
-DB_PATH = DATA_DIR / "id_mapping.db"
+DB_PATH = DATA_DIR / "id_mappings.db"
 
 # 数据库初始化
 def init_db():
@@ -56,9 +56,14 @@ def get_ragflow_id_by_client_id(client_id):
 def get_other_by_ragflow_id(ragflow_id):
     with get_db_connection() as conn:
         c = conn.cursor()
-        c.execute("SELECT ragflow_id, file_name FROM id_mappings WHERE ragflow_id = ?", (ragflow_id,))
+        c.execute("SELECT client_id, file_name FROM id_mappings WHERE ragflow_id = ?", (ragflow_id,))
         result = c.fetchone()
-        return result[0] if result else None
+        if result:
+            # 返回两个值：ragflow_id（第0列）和 file_name（第1列）
+            return result[0], result[1]
+        else:
+            # 无结果时返回 (None, None)，避免解包错误
+            return None, None
 
 # 初始化数据库（应用启动时调用）
-init_db()
+# init_db()

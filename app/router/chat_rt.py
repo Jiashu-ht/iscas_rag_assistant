@@ -1,4 +1,6 @@
 from fastapi import APIRouter, UploadFile, Form
+from ragflow_sdk import Chunk
+import time
 
 from schema.chat import SingleFileChatRequest, ChatRequest
 from service.llm import construct_prompt, query_vllm
@@ -69,6 +71,7 @@ async def single_file_chat(request: SingleFileChatRequest):
         contexts = contexts[:request.top_k]
 
     # 调用大模型生成结果，单文件对话不需要返回文档id
+    # print(contexts)
     prompt = construct_prompt(request.query, contexts)
     answer = query_vllm(user_prompt=prompt, history=request.history)
 
@@ -103,14 +106,19 @@ async def chat(request: ChatRequest):
 
     # 附带参考数据返回
     reference = []
-    for ctx in contexts:
-        file_id, file_name = get_other_by_ragflow_id(ctx['document_id'])
-        reference.append({
-            "file_id": file_id,
-            "file_name": file_name,
-            "chunk": ctx['content'],
-            "similarity": ctx['similarity']
-        })
+    print("---")
+    print( type(contexts) )
+    for i in contexts:
+        print(i)
+    if isinstance(contexts, list):
+        for ctx in contexts:
+            file_id, file_name = get_other_by_ragflow_id(ctx.document_id)
+            reference.append({
+                "file_id": file_id,
+                "file_name": file_name,
+                "chunk": ctx.content,
+                "similarity": ctx.similarity
+            })
     
     return {
         "status": "success",
