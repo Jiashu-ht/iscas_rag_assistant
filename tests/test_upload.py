@@ -3,7 +3,7 @@ import os
 
 def test_upload_file():
     # 接口URL
-    url = "http://localhost:10081/upload"  # 替换为您的实际URL
+    url = "http://localhost:10081/upload_file"  # 替换为您的实际URL
     
     # 准备文件
     file_path = "tests/docs/【兴证电子】世运电路2023中报点评.pdf"  # 替换为您的测试文件路径

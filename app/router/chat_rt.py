@@ -9,7 +9,7 @@ from service.sqlite import save_mapping, get_ragflow_id_by_client_id, get_other_
 
 router = APIRouter()
 
-@router.post("/upload")
+@router.post("/upload_file")
 async def upload_file(file: UploadFile, file_id: str = Form(...)):
     _, dataset = get_ragflow_client_and_dataset()
 
@@ -56,8 +56,11 @@ async def single_file_chat(request: SingleFileChatRequest):
 
     # 检索相关块
     ragflow_id = get_ragflow_id_by_client_id(request.file_id)
-    new_query_prompt = generate_rag_query(request.history, request.query)
-    new_query = query_vllm(user_prompt=new_query_prompt)
+    new_query = request.query
+    if request.history:
+        new_query_prompt = generate_rag_query(request.history, request.query)
+        new_query = query_vllm(user_prompt=new_query_prompt)
+    
     print(f"new query:-------------------\n{new_query}")
     contexts = client.retrieve(question=new_query, dataset_ids=[dataset.id], document_ids=[ragflow_id])
 
@@ -88,8 +91,13 @@ async def single_file_chat(request: SingleFileChatRequest):
 async def chat(request: ChatRequest):
     client, dataset = get_ragflow_client_and_dataset()
 
+    new_query = request.query
+    if request.history:
+        new_query_prompt = generate_rag_query(request.history, request.query)
+        new_query = query_vllm(user_prompt=new_query_prompt)
+
     # 检索相关块
-    contexts = client.retrieve(question=request.query, dataset_ids=[dataset.id])
+    contexts = client.retrieve(question=new_query, dataset_ids=[dataset.id])
 
     # 没有解析完成
     if not contexts:
