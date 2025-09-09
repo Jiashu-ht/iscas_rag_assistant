@@ -23,6 +23,21 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS talk_document_mappings (
+            talk_id TEXT NOT NULL,
+            document_id TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (talk_id, document_id)
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS talk_dataset_mappings (
+            talk_id TEXT PRIMARY KEY,
+            dataset_id TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -67,3 +82,37 @@ def get_other_by_ragflow_id(ragflow_id):
 
 # 初始化数据库（应用启动时调用）
 # init_db()
+
+# 新增会话与数据集映射操作函数
+def save_talk_dataset_mapping(talk_id, dataset_id):
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT OR REPLACE INTO talk_dataset_mappings (talk_id, dataset_id) VALUES (?, ?)",
+            (talk_id, dataset_id)
+        )
+        conn.commit()
+
+def get_dataset_id_by_talk_id(talk_id):
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT dataset_id FROM talk_dataset_mappings WHERE talk_id = ?", (talk_id,))
+        result = c.fetchone()
+        return result[0] if result else None
+
+# 新增会话与文档映射操作函数
+def save_talk_document_mapping(talk_id, document_id):
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            "INSERT OR IGNORE INTO talk_document_mappings (talk_id, document_id) VALUES (?, ?)",
+            (talk_id, document_id)
+        )
+        conn.commit()
+
+def get_document_ids_by_talk_id(talk_id):
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT document_id FROM talk_document_mappings WHERE talk_id = ?", (talk_id,))
+        results = c.fetchall()
+        return [result[0] for result in results] if results else []
