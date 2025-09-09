@@ -1,54 +1,117 @@
 from fastapi import APIRouter, UploadFile, Form, Depends, File
+from fastapi.responses import JSONResponse
 from ragflow_sdk import Chunk
-import time
+import time, threading
 
 from schema.chat import SingleFileChatRequest, ChatRequest, ChatSummaryRequest, get_chat_summary_request
 from service.llm import construct_prompt, query_vllm, generate_rag_query
 from service.ragflow import get_ragflow_client_and_dataset
-from service.sqlite import save_mapping, get_ragflow_id_by_client_id, get_other_by_ragflow_id, save_talk_dataset_mapping, save_talk_document_mapping, get_dataset_id_by_talk_id, get_document_ids_by_talk_id
+from service.sqlite import save_mapping, get_ragflow_id_by_client_id, get_other_by_ragflow_id, save_talk_dataset_mapping, save_talk_document_mapping, get_dataset_id_by_talk_id, get_document_ids_by_talk_id, save_talk_doc_mapping, get_docs_by_talk_id
+from service.doc_parse import parse_documents
 
 
 router = APIRouter()
 
+# @router.post("/upload_file")
+# async def upload_file(file: UploadFile, file_id: str = Form(...)):
+#     _, dataset = get_ragflow_client_and_dataset()
+
+#     # 检查是否已经上传过, 不为空说明已上传
+#     ragflow_id = get_ragflow_id_by_client_id(file_id)
+#     if ragflow_id:
+#         return {
+#             "status": "failure",
+#             "message": "Please do not upload repeatedly",
+#         }
+
+#     # 保存文档到本地
+#     file_name = f"{file_id}_{file.filename}"
+#     file_path = f"./dataset/docs/{file_name}"
+#     with open(file_path, "wb") as f:
+#         f.write(await file.read())
+
+#     # 上传到ragflow数据库
+#     documents =[{"display_name": file_name, "blob":open(file_path, "rb").read()}]
+#     docs = dataset.upload_documents(documents)
+
+#     # 获取ragflow数据库中该文档的id
+#     documents = dataset.list_documents(keywords=file_name)
+#     ids = []
+#     for document in documents:
+#         ids.append(document.id)
+
+#     # 启动异步解析文档，解析需要一定时间，具体看文档大小和复杂度
+#     # 文档解析，文本分块，向量嵌入和存储
+#     dataset.async_parse_documents(ids)
+
+#     # 保存 file_id 和 ragflow_id 的映射，方便后续操作
+#     save_mapping(file_id, ids[0], file.filename)
+#     return {
+#         "status": "success",
+#         "message": "File upload successfully. It takes some time to complete the parsing task. "
+#                   + "Please wait for one minute after the initial upload before starting the conversation",
+#     }
+
+# 定义后台处理文件的函数（同步函数，不含await）
+def process_file_in_background(file_content, file_id, file_name):
+    try:
+        _, dataset = get_ragflow_client_and_dataset()
+        
+        # 保存文档到本地
+        save_path = f"./dataset/docs/{file_id}_{file_name}"
+        with open(save_path, "wb") as f:
+            f.write(file_content)  # 使用已读取的文件内容
+        
+        # 上传到ragflow数据库
+        documents = [{"display_name": f"{file_id}_{file_name}", "blob": file_content}]
+        docs = dataset.upload_documents(documents)
+        
+        # 获取ragflow数据库中该文档的id
+        documents = dataset.list_documents(keywords=f"{file_id}_{file_name}")
+        if documents:
+            ragflow_id = documents[0].id
+            
+            # 启动异步解析文档
+            dataset.async_parse_documents([ragflow_id])
+            
+            # 保存映射关系
+            save_mapping(file_id, ragflow_id, file_name)
+        else:
+            # 处理未找到文档的情况（可添加日志）
+            pass
+            
+    except Exception as e:
+        # 记录错误日志（建议使用logging模块）
+        print(f"文件处理失败: {str(e)}")
+
 @router.post("/upload_file")
 async def upload_file(file: UploadFile, file_id: str = Form(...)):
-    _, dataset = get_ragflow_client_and_dataset()
-
-    # 检查是否已经上传过, 不为空说明已上传
+    # 检查是否已经上传过
     ragflow_id = get_ragflow_id_by_client_id(file_id)
     if ragflow_id:
-        return {
+        return JSONResponse({
             "status": "failure",
             "message": "Please do not upload repeatedly",
-        }
-
-    # 保存文档到本地
-    file_name = f"{file_id}_{file.filename}"
-    file_path = f"./dataset/docs/{file_name}"
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
-
-    # 上传到ragflow数据库
-    documents =[{"display_name": file_name, "blob":open(file_path, "rb").read()}]
-    docs = dataset.upload_documents(documents)
-
-    # 获取ragflow数据库中该文档的id
-    documents = dataset.list_documents(keywords=file_name)
-    ids = []
-    for document in documents:
-        ids.append(document.id)
-
-    # 启动异步解析文档，解析需要一定时间，具体看文档大小和复杂度
-    # 文档解析，文本分块，向量嵌入和存储
-    dataset.async_parse_documents(ids)
-
-    # 保存 file_id 和 ragflow_id 的映射，方便后续操作
-    save_mapping(file_id, ids[0], file.filename)
-    return {
+        })
+    
+    # 先读取文件内容到内存（避免线程中文件对象被关闭）
+    file_content = await file.read()
+    file_name = file.filename
+    
+    # 创建并启动后台线程处理文件
+    thread = threading.Thread(
+        target=process_file_in_background,
+        args=(file_content, file_id, file_name)
+    )
+    thread.daemon = True  # 设为守护线程，主程序退出时自动结束
+    thread.start()
+    
+    # 立即返回响应，不等待处理完成
+    return JSONResponse({
         "status": "success",
-        "message": "File upload successfully. It takes some time to complete the parsing task. "
-                  + "Please wait for one minute after the initial upload before starting the conversation",
-    }
+        "message": "File upload request received. It is being processed in the background. "
+                  + "Please wait for a while before starting the conversation.",
+    })
 
 
 @router.post("/single_file_chat")
@@ -144,6 +207,10 @@ async def chat_summary(
     request: ChatSummaryRequest = Depends(get_chat_summary_request), 
     files: list[UploadFile] = File(default_factory=list)
 ):
+    '''
+    使用ragflow解析文档，处理流程略微复杂，可以考虑接口 /chat_summary_2
+    文件只有首次上传时需要提供 files和file_ids，且数量一致
+    '''
     client, _ = get_ragflow_client_and_dataset()  # 获取基础客户端
     
     # 1. 检查会话是否存在
@@ -223,6 +290,83 @@ async def chat_summary(
 
 # 文档内容
 {documents_str}
+
+# 用户查询
+{request.query}
+
+# 查询分类
+1. 如果查询要求提取关键词，返回5-10个最相关的关键词
+2. 如果查询要求总结，提供简洁明了的摘要
+3. 如果查询要求梳理知识要点，使用分点列出关键信息
+
+# 回答要求
+1. 按查询分类结果回答问题，没有要求就不要回答
+2. 基于提供的所有文档内容进行回答
+3. 确保回答准确反映文档的核心内容
+3. 如果相关文档不存在，则回答文档不存在或者正在解析中。
+
+
+
+请根据用户查询类型，生成严格符合要求的回答。
+"""
+
+    # 调用LLM生成结果
+    answer = query_vllm(user_prompt=summary_prompt, history=request.history)
+    
+    # 6. 返回结果
+    return {
+        "status": "success",
+        "answer": answer,
+        "reference": references,
+        "message": ""
+    }
+
+@router.post("/chat_summary_2")
+async def chat_summary(
+    request: ChatSummaryRequest = Depends(get_chat_summary_request), 
+    files: list[UploadFile] = File(default_factory=list)
+):
+    '''
+    直接使用文档解析工具解析得到文本，速度快很多
+    文件只有首次上传时需要提供 files和file_ids，且数量一致
+    '''
+    doc_id_and_name = []
+    if files:
+        ids = [id for id in request.file_ids]
+        for file, id in zip(files, ids):
+            # 保存文档到本地
+            file_name = f"{id}_{file.filename}"
+            print(file_name)
+            file_path = f"./dataset/docs/{file_name}"
+            with open(file_path, "wb") as f:
+                f.write(await file.read())
+            
+            doc_id_and_name.append((id, file.filename))
+            save_talk_doc_mapping(request.talk_id, id, file.filename)
+            
+    else:
+        for id, name in get_docs_by_talk_id(request.talk_id):
+            doc_id_and_name.append((id, name))
+
+
+    
+    # 4. 生成摘要
+    # 获取所有文档内容
+
+    all_doc_names = []
+    references = []
+    
+    for id, name in doc_id_and_name:
+        all_doc_names.append(f"{id}_{file.filename}")
+    
+    all_documents_content = parse_documents(all_doc_names, "./dataset/docs/")
+    
+    summary_prompt = f"""
+# 任务
+根据用户查询和提供的文档内容，生成相应的摘要信息。
+
+# 文档内容
+{all_documents_content}
 
 # 用户查询
 {request.query}

@@ -18,14 +18,14 @@ class ChatSummaryRequest(BaseModel):
     talk_id: str
     query: str
     # files: List[UploadFile] = Field(default_factory=list)
-    file_ids: List[str] = Field(default_factory=list)
-    history: List = Field(default_factory=list)
+    file_ids: list[str] = Field(default_factory=list)
+    history: list = Field(default_factory=list)
 
 # 2. 定义依赖函数：从表单数据构造模型
 async def get_chat_summary_request(
     talk_id: str = Form(...),
     query: str = Form(...),
-    file_ids: List[str] = Form(default_factory=list),
+    file_ids: list[str] = Form(default_factory=list),
     history: str = Form("[]")  # 前端传JSON字符串，默认空列表
 ) -> ChatSummaryRequest:
     # 解析history（前端传JSON字符串，需转为List）
