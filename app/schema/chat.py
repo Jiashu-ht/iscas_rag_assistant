@@ -6,20 +6,33 @@ import json
 class SingleFileChatRequest(BaseModel):
     file_id: str
     query: str
-    history: List = Field(default_factory=list)
+    # history: List = Field(default_factory=list)
+    history: Optional[str] = ""
     top_k: Optional[int] = 5
 
 class ChatRequest(BaseModel):
     query: str
-    history: List = Field(default_factory=list)
+    # history: List = Field(default_factory=list)
+    history: Optional[str] = ""
     top_k: Optional[int] = 5
+
+# class ChatSummaryRequest(BaseModel):
+#     talk_id: str
+#     query: str
+#     # files: List[UploadFile] = Field(default_factory=list)
+#     file_ids: list[str] = Field(default_factory=list)
+#     # history: list = Field(default_factory=list)
+#     history: Optional[str] = ""
+#     file_paths: list[str] = Field(default_factory=list)
 
 class ChatSummaryRequest(BaseModel):
     talk_id: str
     query: str
     # files: List[UploadFile] = Field(default_factory=list)
-    file_ids: list[str] = Field(default_factory=list)
-    history: list = Field(default_factory=list)
+    file_ids: Optional[str] = ""
+    # history: list = Field(default_factory=list)
+    history: Optional[str] = ""
+    file_paths: Optional[str] = ""
 
 # 2. 定义依赖函数：从表单数据构造模型
 async def get_chat_summary_request(

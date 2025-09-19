@@ -7,19 +7,24 @@ from service.sqlite import get_other_by_ragflow_id
 def query_vllm(system_prompt="", user_prompt="", history=None, model="Qwen2.5-7B-Instruct"):
     headers = {
         "Content-Type": "application/json"
-    }
+    } 
     url = "http://172.17.0.1:10000/v1/chat/completions"
-    
+
     # 构造聊天历史
     messages = []
+    # history = None
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
-    
+    # print(history , type(history) )
     if history:
+        # for i in history:
+        #     i = eval(i)
+        #     print(i , type(i))
+            # messages.append({"role": i["role"], "content": i["content"]})
         messages.extend(history)  # 历史必须是 [{'role': 'user', 'content': '...'}, {'role': 'assistant', 'content': '...'}] 这样的格式
     
     messages.append({"role": "user", "content": user_prompt})
-
+    # print(messages)
     payload = {
         "model": model,
         "messages": messages,
@@ -81,15 +86,16 @@ def query_vllm(system_prompt="", user_prompt="", history=None, model="Qwen2.5-7B
 def construct_prompt(question, contexts: list[Chunk]):
     # 将检索到的上下文组合成字符串
     context_str = []
-    for i, ctx in enumerate(contexts):
-        # print(ctx)
-        print(ctx)
+    if contexts !=None:
+        for i, ctx in enumerate(contexts):
+            # print(ctx)
+            # print(ctx)
 
-        try:
-            file_id, file_name = get_other_by_ragflow_id(ctx.document_id)
-            context_str.append(f"[上下文片段 {i+1}]:\n{ctx.content}\n来源: 文档编号-{file_id}, 文档名称-{file_name}")
-        except Exception as e:
-            print(e)
+            try:
+                file_id, file_name = get_other_by_ragflow_id(ctx.document_id)
+                context_str.append(f"[上下文片段 {i+1}]:\n{ctx.content}\n来源: 文档编号-{file_id}, 文档名称-{file_name}")
+            except Exception as e:
+                print(e)
     context_str = "\n\n".join(context_str)
 
     
@@ -125,7 +131,7 @@ def construct_prompt(question, contexts: list[Chunk]):
 
 请根据以上要求生成回答。
 """
-    print(prompt)
+    # print(prompt)
     
     return prompt
 
@@ -167,3 +173,6 @@ def generate_rag_query(history, query):
     prompt = prompt_template.format(history=history_str, query=query)
     
     return prompt
+
+
+print("---",query_vllm("123" , history = [{'content': '1', 'role': 'user'}, {'content': '2', 'role': 'assistant'}]))
